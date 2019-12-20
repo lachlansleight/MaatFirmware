@@ -126,22 +126,38 @@ void setup() {
   currentMode = 0;
 
   lcd.backlight();
-  LcdPrint("Initializing");
+  LcdPrintCenter("Initializing", 0);
+  LcdPrintCenter("|--------------|", 1);
   Serial1.print("AT+RST\r\n");
-  delay(1000);
+  for(int i = 0; i < 9; i++) {
+    String val = "|";
+    for(int j = 0; j < 9; j++) {
+        if(j < i) val += "#";
+        else val += "-";
+    }
+    val += "-----|";
+    LcdPrintCenter(val, 1);
+    delay(500);
+  }
   
-  LcdPrint("Initializing.");
-  delay(1000);
-  
-  LcdPrint("Initializing..");
   Serial1.print("AT+CIPMUX=1\r\n");
-  LcdPrint("Initializing...");
+  for(int i = 0; i < 6; i++) {
+    String val = "";
+    for(int j = 0; j < 6; j++) {
+        if(j < i) val += "#";
+        else val += "-";
+    }
+    val += "|";
+    val = "|########" + val;
+    LcdPrintCenter(val, 1);
+    Serial.println(val);
+    delay(500);
+  }
+  
+  LcdPrintCenter("|    ~Done~    |", 1);
   delay(1000);
   
-  LcdPrint("Done!");
-  delay(1000);
-  
-  LcdPrint("");
+  LcdClear();
   lcd.noBacklight();
 }
 
@@ -284,7 +300,7 @@ void enterMenu()
 void exitMenu()
 {
     lcd.noBacklight();
-    LcdPrint("");
+    LcdClear();
 
     menuPosition = 0;
     topLevelMenuPosition = 0;
@@ -423,7 +439,7 @@ void uploadReading(float reading)
     LcdPrint("Done!");
     delay(1000);
     
-    LcdPrint("");
+    LcdClear();
     lcd.noBacklight();
     currentMode = 0;
 }
@@ -462,4 +478,10 @@ void LcdPrintCenter(String value, int row)
   }
   lcd.setCursor(0, row);
   lcd.print(value);
+}
+
+void LcdClear()
+{
+    LcdPrint("", 0);
+    LcdPrint("", 1);
 }
