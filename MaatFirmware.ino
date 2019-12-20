@@ -1,36 +1,33 @@
 //=============================================
 //                MA'AT FIRMWARE       
-//                    v0.0.1                  
+//                    v1.0.0                  
 //=============================================
 
 //PINS
-#define PIN_SCL_D 4
-#define PIN_SCL_C 5
+#define PIN_SCL_DAT 4
+#define PIN_SCL_SCK 5
 
-//#define PIN_ROT_B 6
-//#define PIN_ROT_A 7
-#define PIN_BTN_T 6
-#define PIN_BTN_B 7
-#define PIN_BTN_R 8
-#define PIN_BTN_L 9
+#define PIN_BUZZER 6
 
-#define PIN_BUZ 10
+#define PIN_BTN_SET 14
+#define PIN_BTN_UP 16
+#define PIN_BTN_DWN 10
 
-#define PIN_RTC_D 14
-#define PIN_RTC_C 15
+#define PIN_RTC_DAT 8
+#define PIN_RTC_CLK 7
+#define PIN_RTC_RST 9
+
+#define PIN_TEMP A3
 
 //LIBRARIES
 #include <math.h>
 
-//#include <LucRotary.h>
-//LucRotary rotary = LucRotary(PIN_ROT_A, PIN_ROT_B);
-
 #include <DS1302.h>
-DS1302 rtc(A0, PIN_RTC_D, PIN_RTC_C);
+DS1302 rtc(PIN_RTC_RST, PIN_RTC_DAT, PIN_RTC_CLK);
 
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
-LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 8, 2);
+LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 16, 2);
 
 #include <HX711.h>
 HX711 scale;
@@ -89,18 +86,22 @@ int scale_readings_index;
 float average_reading;
 
 //INPUT VARIABLES
-boolean left_pressed;
-boolean right_pressed;
-int rotary_direction;
-unsigned long last_rotary_millis;
+int back_hold_time = 500;
+boolean back_pressed;
+boolean set_pressed;
+int axis_direction;
 
-boolean left_pressdown;
-boolean left_pressup;
-boolean right_pressdown;
-boolean right_pressup;
+boolean back_pressdown;
+boolean back_pressup;
+boolean set_pressdown;
+boolean set_pressup;
 
-boolean last_left_pressed;
-boolean last_right_pressed;
+boolean last_back_pressed;
+boolean last_set_pressed;
+
+boolean back_triggered;
+
+unsigned long set_press_time;
 
 unsigned long last_millis;
 
@@ -108,14 +109,11 @@ void setup() {
   Serial.begin(9600);
   Serial1.begin(115200);
 
-  scale.begin(PIN_SCL_D, PIN_SCL_C);
+  scale.begin(PIN_SCL_DAT, PIN_SCL_SCK);
   scale.set_scale(scale_calibration);
   scale.tare();
 
   lcd.init();
-
-  //Time t(1992, 5, 12, 3, 12, 00, Time::kSunday);
-  //rtc.time(t);
 
   /*
   //DEBUG: alarm goes off in 1 minute
@@ -124,76 +122,67 @@ void setup() {
   alarmArmed = true;
   disarmTime = 10;
   */
-  
-  //alarmTime = 7 * 60 + 30; //7:30am
 
-  //runComponentTest();
   currentMode = 0;
 
   lcd.backlight();
   LcdPrint("Initializing");
   Serial1.print("AT+RST\r\n");
   delay(1000);
+  
   LcdPrint("Initializing.");
   delay(1000);
+  
   LcdPrint("Initializing..");
   Serial1.print("AT+CIPMUX=1\r\n");
   LcdPrint("Initializing...");
   delay(1000);
+  
   LcdPrint("Done!");
   delay(1000);
-  //LcdPrint("");
+  
+  LcdPrint("");
   lcd.noBacklight();
-  
-  //attachInterrupt(digitalPinToInterrupt(PIN_ROT_A), get_rotary, CHANGE);
-}
-
-/*
-void get_rotary()
-{
-     if(millis() - last_rotary_millis < 50) return;
-    
-    int val_a = digitalRead(PIN_ROT_A);
-    int val_b = digitalRead(PIN_ROT_B);
-    if(val_b == val_a) rotary_direction = 1;
-    else rotary_direction = -1;
-
-    last_rotary_millis = millis();
-}
-*/
-
-void runComponentTest()
-{
-  LcdPrint("Running Test...");
-  Serial.println("Running Test...");
-  delay(500);
-  Serial.println("Time test:");
-  delay(500);
-  Time t = rtc.time();
-  Serial.println("Time: " + String(t.hr) + ":" + String(t.min));
-  LcdPrint("Time: " + String(t.hr) + ":" + String(t.min));
-  delay(500);
-  
 }
 
 void loop() {
   long cur_millis = millis();
+  
   //Get scale reading
   scale_reading = scale.get_units(1);
 
   //Get input
-  left_pressed = digitalRead(PIN_BTN_L);
-  right_pressed = digitalRead(PIN_BTN_R);
-  int up_pressed = digitalRead(PIN_BTN_T);
-  int down_pressed = digitalRead(PIN_BTN_B);
-  rotary_direction = up_pressed ? (down_pressed ? 0 : 1) : (down_pressed ? -1 : 0);
-  Serial.println(rotary_direction);
-  //rotary_direction = rotary.getDirection();
+  set_pressed = digitalRead(PIN_BTN_SET);
+  int up_pressed = digitalRead(PIN_BTN_UP);
+  int down_pressed = digitalRead(PIN_BTN_DWN);
+  axis_direction = up_pressed ? (down_pressed ? 0 : 1) : (down_pressed ? -1 : 0);
 
-  left_pressdown = left_pressed && !last_left_pressed;
-  left_pressup = !left_pressed && last_left_pressed;
-  right_pressdown = right_pressed && !last_right_pressed;
-  right_pressup = !right_pressed && last_right_pressed;
+  set_pressdown = set_pressed && !last_set_pressed;
+  set_pressup = !set_pressed && last_set_pressed;
+
+  if(set_pressdown) {
+    set_press_time = millis();
+  }
+
+  if(set_pressup) {
+    if(millis() - set_press_time < back_hold_time) set_pressdown = true;
+    else set_pressdown = false;
+
+    back_triggered = false;
+  } else {
+    set_pressdown = false;
+  }
+
+  if(set_pressed && (millis() - set_press_time > back_hold_time) && !back_triggered) {
+    back_pressdown = true;
+    back_triggered = true;
+  } else {
+    back_pressdown = false;
+  }
+
+  if(set_pressdown) Serial.println("Set");
+  if(back_pressdown) Serial.println("Back");
+  else Serial.println(String(set_pressed) + "  " + String(up_pressed) + "  " + String(down_pressed));
 
   //Get time
   Time t = rtc.time();
@@ -207,7 +196,6 @@ void loop() {
   if(currentMode == -1) return;
   if(currentMode == 0) {
     //IDLE
-    //noTone(PIN_BUZ);
     
     if(scale_reading > 10) {
         if(!idle_showing_reading) {
@@ -223,13 +211,12 @@ void loop() {
         idle_showing_reading = false;
     }
 
-    if(rotary_direction != 0 || left_pressed || right_pressed) {
+    if(axis_direction != 0 || back_pressdown || set_pressdown) {
         enterMenu();
     }
   } else if(currentMode == 1) {
     //MENU    
 
-    //noTone(PIN_BUZ);
     showMenu();
     
   } else if(currentMode == 2) {
@@ -237,21 +224,20 @@ void loop() {
       startDisarmMillis = 0;
       currentDisarmTime = 0;
 
-      //TODO, this will sound horrible
+      //TODO: make the tone nicer / more interesting
       if(millis() % 1000 < 500) {
         int pitch = (int)((millis() % 1000) / 100);
-        if(pitch == 0) tone(PIN_BUZ, 3200);
-        else if(pitch == 1) tone(PIN_BUZ, 4000);
-        else if(pitch == 2) tone(PIN_BUZ, 3200);
-        else if(pitch == 3) tone(PIN_BUZ, 4000);
-        else tone(PIN_BUZ, 3600);
-      } else noTone(PIN_BUZ);
+        if(pitch == 0) tone(PIN_BUZZER, 3200);
+        else if(pitch == 1) tone(PIN_BUZZER, 4000);
+        else if(pitch == 2) tone(PIN_BUZZER, 3200);
+        else if(pitch == 3) tone(PIN_BUZZER, 4000);
+        else tone(PIN_BUZZER, 3600);
+      } else noTone(PIN_BUZZER);
       
     } else {
-      //noTone(PIN_BUZ);
       if(startDisarmMillis == 0) {
          startDisarmMillis = millis();
-         noTone(PIN_BUZ);
+         noTone(PIN_BUZZER);
       }
       currentDisarmTime = (int)((float)(cur_millis - startDisarmMillis) / 1000.0);
       if(currentDisarmTime > disarmTime) {
@@ -276,11 +262,11 @@ void loop() {
   
  
 
-  last_left_pressed = left_pressed;
-  last_right_pressed = right_pressed;
+  last_back_pressed = back_pressed;
+  last_set_pressed = set_pressed;
   lastTime = currentTime;
   last_millis = cur_millis;
-  rotary_direction = 0;
+  axis_direction = 0;
 }
 
 void enterMenu()
@@ -298,7 +284,7 @@ void enterMenu()
 void exitMenu()
 {
     lcd.noBacklight();
-    lcd.print("");
+    LcdPrint("");
 
     menuPosition = 0;
     topLevelMenuPosition = 0;
@@ -311,7 +297,7 @@ void showMenu()
         //top level
     
         //change top level position using rotary encoder
-        topLevelMenuPosition += rotary_direction;
+        topLevelMenuPosition += axis_direction;
         if(topLevelMenuPosition < 0) topLevelMenuPosition = 0;
         if(topLevelMenuPosition >= TOP_LEVEL_MENU_LENGTH) topLevelMenuPosition = TOP_LEVEL_MENU_LENGTH - 1;
     
@@ -323,7 +309,7 @@ void showMenu()
         }
     
         //If right button pressed, either toggle alarm, or enter sub-menu
-        if(right_pressdown) {
+        if(set_pressdown) {
             if(topLevelMenuPosition == 0) {
                 alarmArmed = !alarmArmed;
             } else {
@@ -340,14 +326,14 @@ void showMenu()
         }
     
         //If left button pressed, exit menu
-        if(left_pressdown) {
+        if(back_pressdown) {
             exitMenu();
         }
      } else if(menuPosition == 1) {
         //set alarm
     
         //update time using rotary encoder in 10 minute increments
-        dirtyAlarmTime += rotary_direction * 10;
+        dirtyAlarmTime += axis_direction * 10;
         if(dirtyAlarmTime < 0) dirtyAlarmTime = 1430;
         if(dirtyAlarmTime > 1430) dirtyAlarmTime = 0;
     
@@ -361,9 +347,9 @@ void showMenu()
         LcdPrint("ALARM: " + hoursString + ":" + minutesString + " " + (PM ? "PM" : "AM"));
     
         //Discard changes on left pressed, confirm changes on right pressed
-        if(left_pressdown) {
+        if(back_pressdown) {
             menuPosition = 0;
-        } else if(right_pressdown) {
+        } else if(set_pressdown) {
             alarmTime = dirtyAlarmTime;
             menuPosition = 0;
         }
@@ -371,7 +357,7 @@ void showMenu()
         //set time
     
         //update time using rotary encoder in 1 minute intervals
-        dirtyTime += rotary_direction;
+        dirtyTime += axis_direction;
         if(dirtyTime < 0) dirtyTime = 1439;
         if(dirtyTime > 1439) dirtyTime = 0;
     
@@ -386,9 +372,9 @@ void showMenu()
         LcdPrint("TIME: " + hoursString + ":" + minutesString + " " + (PM ? "PM" : "AM"));
     
         //Discard changes on left pressed, confirm changes on right pressed
-        if(left_pressdown) {
+        if(back_pressdown) {
             menuPosition = 0;
-        } else if(right_pressdown) {
+        } else if(set_pressdown) {
             Time t(1992, 05, 12, rawHours, minutes, 0, Time::kSunday);
             rtc.time(t);
             menuPosition = 0;
@@ -396,15 +382,15 @@ void showMenu()
      } else if(menuPosition == 3) {
         //set disarm time
     
-        dirtyDisarmTime += rotary_direction * 10;
+        dirtyDisarmTime += axis_direction * 10;
         if(dirtyDisarmTime < 0) dirtyDisarmTime = 0;
         if(dirtyDisarmTime > 999) dirtyDisarmTime = 999;
         
         LcdPrint("DISARM: " + String(dirtyDisarmTime) + " sec");
         //Discard changes on left pressed, confirm changes on right pressed
-        if(left_pressdown) {
+        if(back_pressdown) {
             menuPosition = 0;
-        } else if(right_pressdown) {
+        } else if(set_pressdown) {
             disarmTime = dirtyDisarmTime;
             menuPosition = 0;
         }
@@ -423,16 +409,20 @@ void uploadReading(float reading)
     LcdPrint("Connecting...");
     Serial1.print("AT+CIPSTART=4,\"TCP\",\"www.lachlansleight.com\",80\r\n");
     delay(1000);
+    
     LcdPrint("Sending...");
     String message = String(reading);
     String request = "POST /sandbox/post_scale_reading.php HTTP/1.1\r\nHost: www.lachlansleight.com\r\nContent-Type: text/plain\r\nContent-Length: " + String(message.length()) + "\r\n\r\n" + message + "\r\n\r\n";
     int count = request.length();
     Serial1.print("AT+CIPSEND=4," + String(count) + "\r\n");
     delay(500);
+    
     Serial1.print(request);
     delay(2000);
+    
     LcdPrint("Done!");
     delay(1000);
+    
     LcdPrint("");
     lcd.noBacklight();
     currentMode = 0;
@@ -440,20 +430,36 @@ void uploadReading(float reading)
 
 void LcdPrint(String value)
 {
-  String a = "";
-  String b = "";
-  if(value.length() < 8) {
-    a = value;
-    while(a.length() < 8) a += " ";
-    b = "        ";
-  } else {
-    a = value.substring(0, 8);
-    b = value.substring(8);
-    while(b.length() < 8) b += " ";
+    LcdPrint(value, 0);
+}
+void LcdPrint(String value, int row)
+{
+  if(value.length() > 16) {
+    value = value.substring(16);
   }
-  
-  lcd.setCursor(0, 0);
-  lcd.print(a);
-  lcd.setCursor(0, 1);
-  lcd.print(b);
+  while(value.length() < 16) {
+    value += " ";
+  }
+  lcd.setCursor(0, row);
+  lcd.print(value);
+}
+
+void LcdPrintCenter(String value)
+{
+    LcdPrintCenter(value, 0);
+}
+void LcdPrintCenter(String value, int row)
+{
+  if(value.length() > 16) {
+    value = value.substring(16);
+  }
+
+  int spaceCount = 16 - value.length();
+  while(spaceCount > 0) {
+    if(spaceCount % 2 == 0) value = value + " ";
+    else value = " " + value;
+    spaceCount--;
+  }
+  lcd.setCursor(0, row);
+  lcd.print(value);
 }
