@@ -137,7 +137,7 @@ void setup() {
     }
     val += "-----|";
     LcdPrintCenter(val, 1);
-    delay(500);
+    delay(250);
   }
   
   Serial1.print("AT+CIPMUX=1\r\n");
@@ -151,7 +151,7 @@ void setup() {
     val = "|########" + val;
     LcdPrintCenter(val, 1);
     Serial.println(val);
-    delay(500);
+    delay(250);
   }
   LcdPrintCenter("|##############|", 1);
   delay(500);
@@ -271,7 +271,15 @@ void loop() {
          scale_readings_index++;
          if(scale_readings_index >= SCALE_READINGS_LENGTH) scale_readings_index = 0;
          int percent = (int)((float)(currentDisarmTime * 100) / (float)disarmTime);
-         LcdPrint("Disarming: " + String(percent) + "%");
+         String val = "|";
+         for(float i = 0.0; i < 100; i += (100.0 / 14.0)) {
+            if(i < percent) val += "#";
+            else val += "-";
+         }
+         val += "|";
+         LcdPrintCenter("Disarming", 0);
+         LcdPrint(val, 1);
+         //LcdPrint("Disarming: " + String(percent) + "%");
       }
     }
   } else if(currentMode == 3) {
@@ -426,21 +434,54 @@ void startAlarm()
 void uploadReading(float reading)
 {
     lcd.backlight();
-    LcdPrint("Connecting...");
-    Serial1.print("AT+CIPSTART=4,\"TCP\",\"www.lachlansleight.com\",80\r\n");
-    delay(1000);
+    LcdPrintCenter("Disarming", 0);
+    LcdPrint("|    -Done-    |");
+    delay(500);
     
-    LcdPrint("Sending...");
+    LcdPrint("Uploading Weight", 0);
+    LcdPrint("|--------------|", 1);
+    Serial1.print("AT+CIPSTART=4,\"TCP\",\"www.lachlansleight.com\",80\r\n");
+    for(int i = 0; i < 4; i++) {
+        String val = "|";
+        for(int j = 0; j < 4; j++) {
+            if(j < i) val += "#";
+            else val += "-";
+        }
+        val += "----------|";
+        LcdPrintCenter(val, 1);
+        delay(250);
+    }
+    
     String message = String(reading);
     String request = "POST /sandbox/post_scale_reading.php HTTP/1.1\r\nHost: www.lachlansleight.com\r\nContent-Type: text/plain\r\nContent-Length: " + String(message.length()) + "\r\n\r\n" + message + "\r\n\r\n";
     int count = request.length();
     Serial1.print("AT+CIPSEND=4," + String(count) + "\r\n");
-    delay(500);
+    for(int i = 0; i < 2; i++) {
+        String val = "|####";
+        for(int j = 0; j < 2; j++) {
+            if(j < i) val += "#";
+            else val += "-";
+        }
+        val += "--------|";
+        LcdPrintCenter(val, 1);
+        delay(250);
+    }
     
     Serial1.print(request);
-    delay(2000);
+    for(int i = 0; i < 8; i++) {
+        String val = "|######";
+        for(int j = 0; j < 8; j++) {
+            if(j < i) val += "#";
+            else val += "-";
+        }
+        val += "|";
+        LcdPrintCenter(val, 1);
+        delay(250);
+    }
+    LcdPrint("|##############|", 1);
+    delay(500);
     
-    LcdPrint("Done!");
+    LcdPrint("|    -Done-    |", 1);
     delay(1000);
     
     LcdClear();
