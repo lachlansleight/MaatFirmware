@@ -113,7 +113,6 @@ void setup() {
 
   scale.begin(PIN_SCL_DAT, PIN_SCL_SCK);
   scale.set_scale(scale_calibration);
-  scale.tare();
 
   lcd.init();
 
@@ -176,6 +175,8 @@ void setup() {
   
   LcdClear();
   lcd.noBacklight();
+  
+  scale.tare();
 }
 
 void loop() {
