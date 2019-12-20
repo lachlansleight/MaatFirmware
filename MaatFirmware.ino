@@ -48,7 +48,7 @@ boolean idle_showing_reading = false;
 
 //MENU VARIABLES
 #define TOP_LEVEL_MENU_LENGTH 4
-String top_level_menu[] = {"1/4: Alarm: ", "2/4: SET ALARM", "3/4: SET TIME", "4/4: DISARM TIME"};
+String top_level_menu[] = {"Alarm Armed: ", "Set Alarm", "Set Time", "Set Disarm Time"};
 int topLevelMenuPosition = 0;
 //0 = top level
 //1 = set alarm
@@ -153,8 +153,10 @@ void setup() {
     Serial.println(val);
     delay(500);
   }
+  LcdPrintCenter("|##############|", 1);
+  delay(500);
   
-  LcdPrintCenter("|    ~Done~    |", 1);
+  LcdPrintCenter("|    -Done-    |", 1);
   delay(1000);
   
   LcdClear();
@@ -315,12 +317,20 @@ void showMenu()
         topLevelMenuPosition += axis_direction;
         if(topLevelMenuPosition < 0) topLevelMenuPosition = 0;
         if(topLevelMenuPosition >= TOP_LEVEL_MENU_LENGTH) topLevelMenuPosition = TOP_LEVEL_MENU_LENGTH - 1;
+
+        String bar = "|";
+        for(int i = 0; i < 4; i++) {
+            if(i == topLevelMenuPosition) bar += "O";
+            else bar += "-";
+        }
+        bar += "|";
+        LcdPrintCenter(bar, 0);
     
         //Display top level menu on screen
         if(topLevelMenuPosition == 0) {
-            LcdPrint(top_level_menu[0] + (alarmArmed ? "ON" : "OFF"));
+            LcdPrint(top_level_menu[0] + (alarmArmed ? "ON" : "OFF"), 1);
         } else {
-            LcdPrint(top_level_menu[topLevelMenuPosition]);
+            LcdPrintCenter(top_level_menu[topLevelMenuPosition], 1);
         }
     
         //If right button pressed, either toggle alarm, or enter sub-menu
@@ -346,6 +356,7 @@ void showMenu()
         }
      } else if(menuPosition == 1) {
         //set alarm
+        LcdPrintCenter(top_level_menu[1], 0);
     
         //update time using rotary encoder in 10 minute increments
         dirtyAlarmTime += axis_direction * 10;
@@ -355,7 +366,7 @@ void showMenu()
         //print alarm time to display
         int hours = (int)floor(dirtyAlarmTime / 60);
         int minutes = dirtyAlarmTime % 60;
-        LcdPrint("ALARM: " + GetTimeString(hours, minutes));
+        LcdPrintCenter(GetTimeString(hours, minutes), 1);
     
         //Discard changes on left pressed, confirm changes on right pressed
         if(back_pressdown) {
@@ -366,6 +377,7 @@ void showMenu()
         }
      } else if(menuPosition == 2) {
         //set time
+        LcdPrintCenter(top_level_menu[2], 0);
     
         //update time using rotary encoder in 1 minute intervals
         dirtyTime += axis_direction;
@@ -376,7 +388,7 @@ void showMenu()
         int hours = (int)floor(dirtyTime / 60);
         int rawHours = hours;
         int minutes = dirtyTime % 60;
-        LcdPrint("TIME: " + GetTimeString(hours, minutes));
+        LcdPrintCenter(GetTimeString(hours, minutes), 1);
     
         //Discard changes on left pressed, confirm changes on right pressed
         if(back_pressdown) {
@@ -388,12 +400,13 @@ void showMenu()
         }
      } else if(menuPosition == 3) {
         //set disarm time
+        LcdPrintCenter(top_level_menu[3], 0);
     
         dirtyDisarmTime += axis_direction * 10;
         if(dirtyDisarmTime < 0) dirtyDisarmTime = 0;
         if(dirtyDisarmTime > 999) dirtyDisarmTime = 999;
         
-        LcdPrint("DISARM: " + String(dirtyDisarmTime) + " sec");
+        LcdPrintCenter(String(dirtyDisarmTime) + " seconds", 1);
         //Discard changes on left pressed, confirm changes on right pressed
         if(back_pressdown) {
             menuPosition = 0;
