@@ -212,17 +212,20 @@ void loop() {
   if(currentMode == -1) return;
   if(currentMode == 0) {
     //IDLE
+
+    Time t = rtc.time();
+    LcdPrintCenter(GetTimeString(t.hr, t.min), 0);
     
     if(scale_reading > 10) {
         if(!idle_showing_reading) {
             lcd.backlight();
         }
-        LcdPrint(String(scale_reading) + " kg");
+        LcdPrintCenter(String(scale_reading) + " kg", 1);
         idle_showing_reading = true;
     } else {
         if(idle_showing_reading) {
             lcd.noBacklight();
-            LcdPrint("");
+            LcdPrint("", 1);
         }
         idle_showing_reading = false;
     }
@@ -356,11 +359,7 @@ void showMenu()
         //print alarm time to display
         int hours = (int)floor(dirtyAlarmTime / 60);
         int minutes = dirtyAlarmTime % 60;
-        boolean PM = hours > 11;
-        if(hours > 12) hours -= 12;
-        String minutesString = minutes == 0 ? "00" : (minutes < 10 ? "0" + String(minutes) : String(minutes));
-        String hoursString = hours == 0 ? "00" : (hours < 10 ? "0" + String(hours) : String(hours));
-        LcdPrint("ALARM: " + hoursString + ":" + minutesString + " " + (PM ? "PM" : "AM"));
+        LcdPrint("ALARM: " + GetTimeString(hours, minutes));
     
         //Discard changes on left pressed, confirm changes on right pressed
         if(back_pressdown) {
@@ -381,11 +380,7 @@ void showMenu()
         int hours = (int)floor(dirtyTime / 60);
         int rawHours = hours;
         int minutes = dirtyTime % 60;
-        boolean PM = hours > 11;
-        if(hours > 12) hours -= 12;
-        String minutesString = minutes == 0 ? "00" : (minutes < 10 ? "0" + String(minutes) : String(minutes));
-        String hoursString = hours == 0 ? "00" : (hours < 10 ? "0" + String(hours) : String(hours));
-        LcdPrint("TIME: " + hoursString + ":" + minutesString + " " + (PM ? "PM" : "AM"));
+        LcdPrint("TIME: " + GetTimeString(hours, minutes));
     
         //Discard changes on left pressed, confirm changes on right pressed
         if(back_pressdown) {
@@ -442,6 +437,15 @@ void uploadReading(float reading)
     LcdClear();
     lcd.noBacklight();
     currentMode = 0;
+}
+
+String GetTimeString(int hours, int minutes)
+{
+    boolean PM = hours > 11;
+    if(hours > 12) hours -= 12;
+    String minutesString = minutes == 0 ? "00" : (minutes < 10 ? "0" + String(minutes) : String(minutes));
+    String hoursString = hours == 0 ? "00" : (hours < 10 ? "0" + String(hours) : String(hours));
+    return hoursString + ":" + minutesString + " " + (PM ? "PM" : "AM");
 }
 
 void LcdPrint(String value)
