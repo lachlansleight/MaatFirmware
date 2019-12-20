@@ -315,14 +315,13 @@ void loop() {
          if(scale_readings_index >= SCALE_READINGS_LENGTH) scale_readings_index = 0;
          int percent = (int)((float)(currentDisarmTime * 100) / (float)disarmTime);
          String val = "|";
-         for(float i = 0.0; i < 100; i += (100.0 / 14.0)) {
+         for(float i = 0.0; i < 100; i += 7.142857) {
             if(i < percent) val += "#";
             else val += "-";
          }
          val += "|";
          LcdPrintCenter("Disarming", 0);
          LcdPrint(val, 1);
-         //LcdPrint("Disarming: " + String(percent) + "%");
       }
     }
   } else if(currentMode == 3) {
@@ -472,13 +471,17 @@ void startAlarm()
 {
     currentMode = 2;
     lcd.backlight();
+    LcdPrintCenter("Rise and Shine!!", 0);
+    int hours = (int)(alarmTime / 60);
+    int minutes = alarmTime % 60;
+    LcdPrintCenter("It's " + GetTimeString(hours, minutes) + "!");
 }
 
 void uploadReading(float reading)
 {
     lcd.backlight();
     LcdPrintCenter("Disarming", 0);
-    LcdPrint("|    -Done-    |");
+    LcdPrint("|    -Done-    |", 1);
     delay(500);
     
     LcdPrint("Uploading Weight", 0);
