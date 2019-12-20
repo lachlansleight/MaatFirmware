@@ -48,8 +48,8 @@ int alarmMode = 0;
 boolean idle_showing_reading = false;
 
 //MENU VARIABLES
-#define TOP_LEVEL_MENU_LENGTH 4
-String top_level_menu[] = {"Alarm Armed: ", "Set Alarm", "Set Time", "Set Disarm Time"};
+#define TOP_LEVEL_MENU_LENGTH 5
+String top_level_menu[] = {"Alarm Armed: ", "Set Alarm", "Set Time", "Set Disarm Time", "Tare Scale"};
 int topLevelMenuPosition = 0;
 //0 = top level
 //1 = set alarm
@@ -369,7 +369,7 @@ void showMenu()
         if(topLevelMenuPosition >= TOP_LEVEL_MENU_LENGTH) topLevelMenuPosition = TOP_LEVEL_MENU_LENGTH - 1;
 
         String bar = "|";
-        for(int i = 0; i < 4; i++) {
+        for(int i = 0; i < TOP_LEVEL_MENU_LENGTH; i++) {
             if(i == topLevelMenuPosition) bar += "O";
             else bar += "-";
         }
@@ -379,6 +379,8 @@ void showMenu()
         //Display top level menu on screen
         if(topLevelMenuPosition == 0) {
             LcdPrint(top_level_menu[0] + (alarmArmed ? "ON" : "OFF"), 1);
+        } else if(topLevelMenuPosition == 4) {
+            LcdPrintCenter("Tare (" + String(scale_reading) + " kg)", 1);
         } else {
             LcdPrintCenter(top_level_menu[topLevelMenuPosition], 1);
         }
@@ -387,6 +389,12 @@ void showMenu()
         if(set_pressdown) {
             if(topLevelMenuPosition == 0) {
                 alarmArmed = !alarmArmed;
+            } else if(topLevelMenuPosition == 4) {
+                LcdPrintCenter("Taring Scale...", 1);
+                delay(500);
+                scale.tare();
+                LcdPrintCenter("Done", 1);
+                delay(500);         
             } else {
                 menuPosition = topLevelMenuPosition;
                 if(menuPosition == 1) {
