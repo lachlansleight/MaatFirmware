@@ -34,6 +34,7 @@ HX711 scale;
 
 
 //MODE VARIABLES
+//-2 = scale calibration mode
 //-1 = not inititlized
 //0 = idle
 //1 = menu
@@ -78,7 +79,8 @@ int validNoteDurations[] = {100, 200, 400, 800};
 int nextPitchMillis;
 
 //SCALE VARIABLES
-float scale_calibration = 6150;
+float scale_calibration = 20580;
+float calibration_interval = 1;
 float scale_reading;
 #define SCALE_READINGS_LENGTH 100
 float scale_readings[100];
@@ -123,7 +125,20 @@ void setup() {
   disarmTime = 10;
   */
 
-  currentMode = 0;
+  //hold the set button when turning on to enter scale calibration mode
+  if(digitalRead(PIN_BTN_SET)) {
+    currentMode = -2;
+  } else {
+    currentMode = 0;
+  }
+
+  if(currentMode == -2) {
+    lcd.backlight();
+    LcdPrintCenter("Entering Scale", 0);
+    LcdPrintCenter("Calibration Mode", 1);
+    delay(2000);
+    return;
+  }
 
   lcd.backlight();
   LcdPrintCenter("Initializing", 0);
@@ -207,6 +222,33 @@ void loop() {
     startAlarm();
   }
 
+  if(currentMode == -2) {
+    //SCALE CALIBRATION
+
+    float new_calibration = scale_calibration + axis_direction * calibration_interval;
+    if(new_calibration != scale_calibration) {
+        scale_calibration = new_calibration;
+        scale.set_scale(scale_calibration);
+    }
+    
+    if(back_pressdown) {
+        LcdPrintCenter("Tare", 0);
+        LcdPrintCenter("Scale", 1);
+        delay(1000);
+        scale.tare();
+        delay(1000);
+    }
+
+    if(set_pressdown) {
+        if(calibration_interval < 1) calibration_interval = 1;
+        else if(calibration_interval < 10) calibration_interval = 10;
+        else if(calibration_interval < 100) calibration_interval = 100;
+        else if(calibration_interval < 1000) calibration_interval = 1000;
+        else calibration_interval = 0.1;
+    }
+    LcdPrintCenter("Factor: " + String(scale_calibration), 0);
+    LcdPrintCenter(String(scale_reading) + " kg", 1);
+  }
   if(currentMode == -1) return;
   if(currentMode == 0) {
     //IDLE
