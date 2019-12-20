@@ -40,9 +40,9 @@ HX711 scale;
 //1 = menu
 //2 = alarm
 //3 = uploading
-int currentMode = -1;
-int menuMode = 0;
-int alarmMode = 0;
+int current_mode = -1;
+int menu_mode = 0;
+int alarm_mode = 0;
 
 //IDLE VARIABLES
 boolean idle_showing_reading = false;
@@ -50,16 +50,16 @@ boolean idle_showing_reading = false;
 //MENU VARIABLES
 #define TOP_LEVEL_MENU_LENGTH 5
 String top_level_menu[] = {"Alarm Armed: ", "Set Alarm", "Set Time", "Set Disarm Time", "Tare Scale"};
-int topLevelMenuPosition = 0;
+int top_level_menu_position = 0;
 //0 = top level
 //1 = set alarm
 //2 = set time
 //3 = disarm time
-int menuPosition = 0;
-int dirtyAlarmTime;
-int dirtyTime;
-int dirtyDisarmTime;
-int timeTickDirection;
+int menu_position = 0;
+int dirty_alarm_time;
+int dirty_time;
+int dirty_disarm_time;
+int time_tick_direction;
 
 //ALARM VARIABLES
 int alarmTime = 420;
@@ -69,14 +69,14 @@ int currentDisarmTime = 0;
 unsigned long startDisarmMillis;
 
 //TIME VARIABLES
-int currentTime;
-int lastTime;
-boolean alarmTriggered;
+int current_time;
+int last_time;
+boolean alarm_triggered;
 
-byte validNotePitches[] = {60, 62, 64, 65, 67, 69, 71, 72};
-int validNoteFrequencies[] = {0, 0, 0, 0, 0, 0, 0, 0}; //TODO
-int validNoteDurations[] = {100, 200, 400, 800};
-int nextPitchMillis;
+byte valid_note_pitches[] = {60, 62, 64, 65, 67, 69, 71, 72};
+int valid_note_frequencies[] = {0, 0, 0, 0, 0, 0, 0, 0}; //TODO
+int valid_note_durations[] = {100, 200, 400, 800};
+int next_pitch_millis;
 
 //SCALE VARIABLES
 float scale_calibration = 20580;
@@ -126,22 +126,22 @@ void setup() {
 
   //hold the set button when turning on to enter scale calibration mode
   if(digitalRead(PIN_BTN_SET)) {
-    currentMode = -2;
+    current_mode = -2;
   } else {
-    currentMode = 0;
+    current_mode = 0;
   }
 
-  if(currentMode == -2) {
+  if(current_mode == -2) {
     lcd.backlight();
-    LcdPrintCenter("Entering Scale", 0);
-    LcdPrintCenter("Calibration Mode", 1);
+    lcdPrintCenter("Entering Scale", 0);
+    lcdPrintCenter("Calibration Mode", 1);
     delay(2000);
     return;
   }
 
   lcd.backlight();
-  LcdPrintCenter("Initializing", 0);
-  LcdPrintCenter("|--------------|", 1);
+  lcdPrintCenter("Initializing", 0);
+  lcdPrintCenter("|--------------|", 1);
   Serial1.print("AT+RST\r\n");
   for(int i = 0; i < 9; i++) {
     String val = "|";
@@ -150,7 +150,7 @@ void setup() {
         else val += "-";
     }
     val += "-----|";
-    LcdPrintCenter(val, 1);
+    lcdPrintCenter(val, 1);
     delay(250);
   }
   
@@ -163,17 +163,17 @@ void setup() {
     }
     val += "|";
     val = "|########" + val;
-    LcdPrintCenter(val, 1);
+    lcdPrintCenter(val, 1);
     Serial.println(val);
     delay(250);
   }
-  LcdPrintCenter("|##############|", 1);
+  lcdPrintCenter("|##############|", 1);
   delay(500);
   
-  LcdPrintCenter("|    -Done-    |", 1);
+  lcdPrintCenter("|    -Done-    |", 1);
   delay(1000);
   
-  LcdClear();
+  lcdClear();
   lcd.noBacklight();
   
   scale.tare();
@@ -216,14 +216,14 @@ void loop() {
 
   //Get time
   Time t = rtc.time();
-  currentTime = t.hr * 60 + t.min;
-  alarmTriggered = (currentTime == alarmTime && lastTime != alarmTime && alarmArmed);
+  current_time = t.hr * 60 + t.min;
+  alarm_triggered = (current_time == alarmTime && last_time != alarmTime && alarmArmed);
 
-  if(alarmTriggered) {
+  if(alarm_triggered) {
     startAlarm();
   }
 
-  if(currentMode == -2) {
+  if(current_mode == -2) {
     //SCALE CALIBRATION
 
     float new_calibration = scale_calibration + axis_direction * calibration_interval;
@@ -233,8 +233,8 @@ void loop() {
     }
     
     if(back_pressdown) {
-        LcdPrintCenter("Tare", 0);
-        LcdPrintCenter("Scale", 1);
+        lcdPrintCenter("Tare", 0);
+        lcdPrintCenter("Scale", 1);
         delay(1000);
         scale.tare();
         delay(1000);
@@ -247,26 +247,26 @@ void loop() {
         else if(calibration_interval < 1000) calibration_interval = 1000;
         else calibration_interval = 0.1;
     }
-    LcdPrintCenter("Factor: " + String(scale_calibration), 0);
-    LcdPrintCenter(String(scale_reading) + " kg", 1);
+    lcdPrintCenter("Factor: " + String(scale_calibration), 0);
+    lcdPrintCenter(String(scale_reading) + " kg", 1);
   }
-  if(currentMode == -1) return;
-  if(currentMode == 0) {
+  if(current_mode == -1) return;
+  if(current_mode == 0) {
     //IDLE
 
     Time t = rtc.time();
-    LcdPrintCenter(GetTimeString(t.hr, t.min), 0);
+    lcdPrintCenter(getTimeString(t.hr, t.min), 0);
     
     if(scale_reading > 10) {
         if(!idle_showing_reading) {
             lcd.backlight();
         }
-        LcdPrintCenter(String(scale_reading) + " kg", 1);
+        lcdPrintCenter(String(scale_reading) + " kg", 1);
         idle_showing_reading = true;
     } else {
         if(idle_showing_reading) {
             lcd.noBacklight();
-            LcdPrint("", 1);
+            lcdPrint("", 1);
         }
         idle_showing_reading = false;
     }
@@ -274,12 +274,12 @@ void loop() {
     if(axis_direction != 0 || back_pressdown || set_pressdown) {
         enterMenu();
     }
-  } else if(currentMode == 1) {
+  } else if(current_mode == 1) {
     //MENU    
 
     showMenu();
     
-  } else if(currentMode == 2) {
+  } else if(current_mode == 2) {
     if(scale_reading < 50) {
       startDisarmMillis = 0;
       currentDisarmTime = 0;
@@ -307,7 +307,7 @@ void loop() {
           }
           average_reading = sum / (float)SCALE_READINGS_LENGTH;
     
-          currentMode = 3;
+          current_mode = 3;
           uploadReading(average_reading);
       } else {
          scale_readings[scale_readings_index] = scale_reading;
@@ -320,18 +320,18 @@ void loop() {
             else val += "-";
          }
          val += "|";
-         LcdPrintCenter("Disarming", 0);
-         LcdPrint(val, 1);
+         lcdPrintCenter("Disarming", 0);
+         lcdPrint(val, 1);
       }
     }
-  } else if(currentMode == 3) {
+  } else if(current_mode == 3) {
   }
   
  
 
   last_back_pressed = back_pressed;
   last_set_pressed = set_pressed;
-  lastTime = currentTime;
+  last_time = current_time;
   last_millis = cur_millis;
   axis_direction = 0;
 }
@@ -345,65 +345,65 @@ void enterMenu()
     lcd.backlight();
 
     //Enter menu mode
-    currentMode = 1;
+    current_mode = 1;
 }
 
 void exitMenu()
 {
     lcd.noBacklight();
-    LcdClear();
+    lcdClear();
 
-    menuPosition = 0;
-    topLevelMenuPosition = 0;
-    currentMode = 0;
+    menu_position = 0;
+    top_level_menu_position = 0;
+    current_mode = 0;
 }
 
 void showMenu()
 {
-    if(menuPosition == 0) {
+    if(menu_position == 0) {
         //top level
     
         //change top level position using rotary encoder
-        topLevelMenuPosition += axis_direction;
-        if(topLevelMenuPosition < 0) topLevelMenuPosition = 0;
-        if(topLevelMenuPosition >= TOP_LEVEL_MENU_LENGTH) topLevelMenuPosition = TOP_LEVEL_MENU_LENGTH - 1;
+        top_level_menu_position += axis_direction;
+        if(top_level_menu_position < 0) top_level_menu_position = 0;
+        if(top_level_menu_position >= TOP_LEVEL_MENU_LENGTH) top_level_menu_position = TOP_LEVEL_MENU_LENGTH - 1;
 
         String bar = "|";
         for(int i = 0; i < TOP_LEVEL_MENU_LENGTH; i++) {
-            if(i == topLevelMenuPosition) bar += "O";
+            if(i == top_level_menu_position) bar += "O";
             else bar += "-";
         }
         bar += "|";
-        LcdPrintCenter(bar, 0);
+        lcdPrintCenter(bar, 0);
     
         //Display top level menu on screen
-        if(topLevelMenuPosition == 0) {
-            LcdPrint(top_level_menu[0] + (alarmArmed ? "ON" : "OFF"), 1);
-        } else if(topLevelMenuPosition == 4) {
-            LcdPrintCenter("Tare (" + String(scale_reading) + " kg)", 1);
+        if(top_level_menu_position == 0) {
+            lcdPrint(top_level_menu[0] + (alarmArmed ? "ON" : "OFF"), 1);
+        } else if(top_level_menu_position == 4) {
+            lcdPrintCenter("Tare (" + String(scale_reading) + " kg)", 1);
         } else {
-            LcdPrintCenter(top_level_menu[topLevelMenuPosition], 1);
+            lcdPrintCenter(top_level_menu[top_level_menu_position], 1);
         }
     
         //If right button pressed, either toggle alarm, or enter sub-menu
         if(set_pressdown) {
-            if(topLevelMenuPosition == 0) {
+            if(top_level_menu_position == 0) {
                 alarmArmed = !alarmArmed;
-            } else if(topLevelMenuPosition == 4) {
-                LcdPrintCenter("Taring Scale...", 1);
+            } else if(top_level_menu_position == 4) {
+                lcdPrintCenter("Taring Scale...", 1);
                 delay(500);
                 scale.tare();
-                LcdPrintCenter("Done", 1);
+                lcdPrintCenter("Done", 1);
                 delay(500);         
             } else {
-                menuPosition = topLevelMenuPosition;
-                if(menuPosition == 1) {
-                    dirtyAlarmTime = alarmTime;
-                } else if(menuPosition == 2) {
+                menu_position = top_level_menu_position;
+                if(menu_position == 1) {
+                    dirty_alarm_time = alarmTime;
+                } else if(menu_position == 2) {
                     Time t = rtc.time();
-                    dirtyTime = t.hr * 60 + t.min;
-                } else if(menuPosition == 3) {
-                    dirtyDisarmTime = disarmTime;
+                    dirty_time = t.hr * 60 + t.min;
+                } else if(menu_position == 3) {
+                    dirty_disarm_time = disarmTime;
                 }
             }
         }
@@ -412,88 +412,88 @@ void showMenu()
         if(back_pressdown) {
             exitMenu();
         }
-     } else if(menuPosition == 1) {
+     } else if(menu_position == 1) {
         //set alarm
-        LcdPrintCenter(top_level_menu[1], 0);
+        lcdPrintCenter(top_level_menu[1], 0);
     
         //update time using rotary encoder in 10 minute increments
-        dirtyAlarmTime += axis_direction * 10;
-        if(dirtyAlarmTime < 0) dirtyAlarmTime = 1430;
-        if(dirtyAlarmTime > 1430) dirtyAlarmTime = 0;
+        dirty_alarm_time += axis_direction * 10;
+        if(dirty_alarm_time < 0) dirty_alarm_time = 1430;
+        if(dirty_alarm_time > 1430) dirty_alarm_time = 0;
     
         //print alarm time to display
-        int hours = (int)floor(dirtyAlarmTime / 60);
-        int minutes = dirtyAlarmTime % 60;
-        LcdPrintCenter(GetTimeString(hours, minutes), 1);
+        int hours = (int)floor(dirty_alarm_time / 60);
+        int minutes = dirty_alarm_time % 60;
+        lcdPrintCenter(getTimeString(hours, minutes), 1);
     
         //Discard changes on left pressed, confirm changes on right pressed
         if(back_pressdown) {
-            menuPosition = 0;
+            menu_position = 0;
         } else if(set_pressdown) {
-            alarmTime = dirtyAlarmTime;
-            menuPosition = 0;
+            alarmTime = dirty_alarm_time;
+            menu_position = 0;
         }
-     } else if(menuPosition == 2) {
+     } else if(menu_position == 2) {
         //set time
-        LcdPrintCenter(top_level_menu[2], 0);
+        lcdPrintCenter(top_level_menu[2], 0);
     
         //update time using rotary encoder in 1 minute intervals
-        dirtyTime += axis_direction;
-        if(dirtyTime < 0) dirtyTime = 1439;
-        if(dirtyTime > 1439) dirtyTime = 0;
+        dirty_time += axis_direction;
+        if(dirty_time < 0) dirty_time = 1439;
+        if(dirty_time > 1439) dirty_time = 0;
     
         //print time to display
-        int hours = (int)floor(dirtyTime / 60);
-        int rawHours = hours;
-        int minutes = dirtyTime % 60;
-        LcdPrintCenter(GetTimeString(hours, minutes), 1);
+        int hours = (int)floor(dirty_time / 60);
+        int raw_hours = hours;
+        int minutes = dirty_time % 60;
+        lcdPrintCenter(getTimeString(hours, minutes), 1);
     
         //Discard changes on left pressed, confirm changes on right pressed
         if(back_pressdown) {
-            menuPosition = 0;
+            menu_position = 0;
         } else if(set_pressdown) {
-            Time t(1992, 05, 12, rawHours, minutes, 0, Time::kSunday);
+            Time t(1992, 05, 12, raw_hours, minutes, 0, Time::kSunday);
             rtc.time(t);
-            menuPosition = 0;
+            menu_position = 0;
         }
-     } else if(menuPosition == 3) {
+     } else if(menu_position == 3) {
         //set disarm time
-        LcdPrintCenter(top_level_menu[3], 0);
+        lcdPrintCenter(top_level_menu[3], 0);
     
-        dirtyDisarmTime += axis_direction * 10;
-        if(dirtyDisarmTime < 0) dirtyDisarmTime = 0;
-        if(dirtyDisarmTime > 999) dirtyDisarmTime = 999;
+        dirty_disarm_time += axis_direction * 10;
+        if(dirty_disarm_time < 0) dirty_disarm_time = 0;
+        if(dirty_disarm_time > 999) dirty_disarm_time = 999;
         
-        LcdPrintCenter(String(dirtyDisarmTime) + " seconds", 1);
+        lcdPrintCenter(String(dirty_disarm_time) + " seconds", 1);
         //Discard changes on left pressed, confirm changes on right pressed
         if(back_pressdown) {
-            menuPosition = 0;
+            menu_position = 0;
         } else if(set_pressdown) {
-            disarmTime = dirtyDisarmTime;
-            menuPosition = 0;
+            disarmTime = dirty_disarm_time;
+            menu_position = 0;
         }
      }
 }
 
 void startAlarm()
 {
-    currentMode = 2;
+    current_mode = 2;
     lcd.backlight();
-    LcdPrintCenter("Rise and Shine!!", 0);
+    lcdPrintCenter("Rise and Shine!!", 0);
     int hours = (int)(alarmTime / 60);
     int minutes = alarmTime % 60;
-    LcdPrintCenter("It's " + GetTimeString(hours, minutes) + "!");
+    lcdPrintCenter("It's " + getTimeString(hours, minutes) + "!");
 }
 
 void uploadReading(float reading)
 {
     lcd.backlight();
-    LcdPrintCenter("Disarming", 0);
-    LcdPrint("|    -Done-    |", 1);
+    lcdPrintCenter("Disarming", 0);
+    lcdPrint("|    -Done-    |", 1);
     delay(500);
     
-    LcdPrint("Uploading Weight", 0);
-    LcdPrint("|--------------|", 1);
+    lcdPrint("Uploading Weight", 0);
+    lcdPrint("|--------------|", 1);
     Serial1.print("AT+CIPSTART=4,\"TCP\",\"www.lachlansleight.com\",80\r\n");
     for(int i = 0; i < 4; i++) {
         String val = "|";
@@ -502,7 +502,7 @@ void uploadReading(float reading)
             else val += "-";
         }
         val += "----------|";
-        LcdPrintCenter(val, 1);
+        lcdPrintCenter(val, 1);
         delay(250);
     }
     
@@ -517,7 +517,7 @@ void uploadReading(float reading)
             else val += "-";
         }
         val += "--------|";
-        LcdPrintCenter(val, 1);
+        lcdPrintCenter(val, 1);
         delay(250);
     }
     
@@ -529,34 +529,34 @@ void uploadReading(float reading)
             else val += "-";
         }
         val += "|";
-        LcdPrintCenter(val, 1);
+        lcdPrintCenter(val, 1);
         delay(250);
     }
-    LcdPrint("|##############|", 1);
+    lcdPrint("|##############|", 1);
     delay(500);
     
-    LcdPrint("|    -Done-    |", 1);
+    lcdPrint("|    -Done-    |", 1);
     delay(1000);
     
-    LcdClear();
+    lcdClear();
     lcd.noBacklight();
-    currentMode = 0;
+    current_mode = 0;
 }
 
-String GetTimeString(int hours, int minutes)
+String getTimeString(int hours, int minutes)
 {
-    boolean PM = hours > 11;
+    boolean is_pm = hours > 11;
     if(hours > 12) hours -= 12;
-    String minutesString = minutes == 0 ? "00" : (minutes < 10 ? "0" + String(minutes) : String(minutes));
-    String hoursString = hours == 0 ? "00" : (hours < 10 ? "0" + String(hours) : String(hours));
-    return hoursString + ":" + minutesString + " " + (PM ? "PM" : "AM");
+    String minutes_string = minutes == 0 ? "00" : (minutes < 10 ? "0" + String(minutes) : String(minutes));
+    String hours_string = hours == 0 ? "00" : (hours < 10 ? "0" + String(hours) : String(hours));
+    return hours_string + ":" + minutes_string + " " + (is_pm ? "PM" : "AM");
 }
 
-void LcdPrint(String value)
+void lcdPrint(String value)
 {
-    LcdPrint(value, 0);
+    lcdPrint(value, 0);
 }
-void LcdPrint(String value, int row)
+void lcdPrint(String value, int row)
 {
   if(value.length() > 16) {
     value = value.substring(16);
@@ -568,11 +568,11 @@ void LcdPrint(String value, int row)
   lcd.print(value);
 }
 
-void LcdPrintCenter(String value)
+void lcdPrintCenter(String value)
 {
-    LcdPrintCenter(value, 0);
+    lcdPrintCenter(value, 0);
 }
-void LcdPrintCenter(String value, int row)
+void lcdPrintCenter(String value, int row)
 {
   if(value.length() > 16) {
     value = value.substring(16);
@@ -588,8 +588,8 @@ void LcdPrintCenter(String value, int row)
   lcd.print(value);
 }
 
-void LcdClear()
+void lcdClear()
 {
-    LcdPrint("", 0);
-    LcdPrint("", 1);
+    lcdPrint("", 0);
+    lcdPrint("", 1);
 }
