@@ -196,10 +196,6 @@ void loop() {
     back_pressdown = false;
   }
 
-  if(set_pressdown) Serial.println("Set");
-  if(back_pressdown) Serial.println("Back");
-  else Serial.println(String(set_pressed) + "  " + String(up_pressed) + "  " + String(down_pressed));
-
   //Get time
   Time t = rtc.time();
   currentTime = t.hr * 60 + t.min;
