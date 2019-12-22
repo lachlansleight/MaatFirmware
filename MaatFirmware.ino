@@ -482,7 +482,7 @@ void startAlarm()
     lcdPrintCenter("Rise and Shine!!", 0);
     int hours = (int)(alarmTime / 60);
     int minutes = alarmTime % 60;
-    lcdPrintCenter("It's " + getTimeString(hours, minutes) + "!");
+    lcdPrintCenter("It's " + getTimeString(hours, minutes) + "!", 1);
 }
 
 void uploadReading(float reading)
