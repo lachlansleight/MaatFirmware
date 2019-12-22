@@ -1,6 +1,6 @@
 //=============================================
 //                MA'AT FIRMWARE       
-//                    v1.0.0                  
+//                    v1.0.1                  
 //=============================================
 
 //PINS
@@ -82,6 +82,7 @@ int next_pitch_millis;
 float scale_calibration = 20580;
 float calibration_interval = 1;
 float scale_reading;
+String scale_reading_string;
 #define SCALE_READINGS_LENGTH 100
 float scale_readings[100];
 int scale_readings_index;
@@ -184,6 +185,8 @@ void loop() {
   
   //Get scale reading
   scale_reading = scale.get_units(1);
+  long reading_mult = (long)(scale_reading * 10.0);
+  scale_reading_string = String((float)reading_mult / 10.0) + " kg";
 
   //Get input
   set_pressed = digitalRead(PIN_BTN_SET);
@@ -261,7 +264,7 @@ void loop() {
         if(!idle_showing_reading) {
             lcd.backlight();
         }
-        lcdPrintCenter(String(scale_reading) + " kg", 1);
+        lcdPrintCenter(scale_reading_string, 1);
         idle_showing_reading = true;
     } else {
         if(idle_showing_reading) {
