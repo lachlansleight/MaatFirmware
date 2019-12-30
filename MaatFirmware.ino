@@ -1,6 +1,6 @@
 //=============================================
 //                MA'AT FIRMWARE       
-//                    v1.0.1                  
+//                    v1.0.2                  
 //=============================================
 
 //PINS
@@ -24,6 +24,10 @@
 
 #include <DS1302.h>
 DS1302 rtc(PIN_RTC_RST, PIN_RTC_DAT, PIN_RTC_CLK);
+#define ARMED_RAM_ADDRESS 0
+#define DISARM_TIME_RAM_ADDRESS 1
+#define ALARM_HOUR_RAM_ADDRESS 2 
+#define ALARM_MINUTE_RAM_ADDRESS 3
 
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
@@ -64,7 +68,7 @@ int time_tick_direction;
 //ALARM VARIABLES
 int alarmTime = 420;
 int disarmTime = 120;
-boolean alarmArmed = false;
+boolean alarmArmed = true;
 int currentDisarmTime = 0;
 unsigned long startDisarmMillis;
 
@@ -116,6 +120,22 @@ void setup() {
   scale.set_scale(scale_calibration);
 
   lcd.init();
+
+  rtc.writeProtect(false);
+  byte armedRamValue = rtc.readRam(ARMED_RAM_ADDRESS);
+  byte disarmTimeRamValue = rtc.readRam(DISARM_TIME_RAM_ADDRESS);
+  byte alarmTimeHourRamValue = rtc.readRam(ALARM_HOUR_RAM_ADDRESS);
+  byte alarmTimeMinuteRamValue = rtc.readRam(ALARM_MINUTE_RAM_ADDRESS);
+  if(armedRamValue != 0) {
+    //-1 = disarmed, 1 = armed
+    alarmArmed = rtc.readRam(0) > 0;
+  }
+  if(disarmTimeRamValue > 0) {
+    disarmTime = 30 * (int)disarmTimeRamValue;
+  }
+  if(alarmTimeHourRamValue != 0 || alarmTimeMinuteRamValue != 0) {
+    alarmTime = (int)alarmTimeHourRamValue * 60 + (int)alarmTimeMinuteRamValue;
+  }
 
   /*
   //DEBUG: alarm goes off in 1 minute
@@ -392,6 +412,7 @@ void showMenu()
         if(set_pressdown) {
             if(top_level_menu_position == 0) {
                 alarmArmed = !alarmArmed;
+                rtc.writeRam(ARMED_RAM_ADDRESS, alarmArmed ? 1 : -1);
             } else if(top_level_menu_position == 4) {
                 lcdPrintCenter("Taring Scale...", 1);
                 delay(500);
@@ -435,6 +456,8 @@ void showMenu()
         } else if(set_pressdown) {
             alarmTime = dirty_alarm_time;
             menu_position = 0;
+            rtc.writeRam(ALARM_HOUR_RAM_ADDRESS, (byte)(alarmTime / 60));
+            rtc.writeRam(ALARM_MINUTE_RAM_ADDRESS, (byte)(alarmTime % 60));
         }
      } else if(menu_position == 2) {
         //set time
@@ -474,6 +497,7 @@ void showMenu()
         } else if(set_pressdown) {
             disarmTime = dirty_disarm_time;
             menu_position = 0;
+            rtc.writeRam(DISARM_TIME_RAM_ADDRESS, (byte)(disarmTime / 30));
         }
      }
 }
