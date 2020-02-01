@@ -28,6 +28,8 @@ DS1302 rtc(PIN_RTC_RST, PIN_RTC_DAT, PIN_RTC_CLK);
 #define DISARM_TIME_RAM_ADDRESS 1
 #define ALARM_HOUR_RAM_ADDRESS 2 
 #define ALARM_MINUTE_RAM_ADDRESS 3
+#define SCALE_CALIBRATION_RAM_ADDRESS_LOW 4
+#define SCALE_CALIBRATION_RAM_ADDRESS_HIGH 5
 
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
@@ -83,7 +85,7 @@ int valid_note_durations[] = {100, 200, 400, 800};
 int next_pitch_millis;
 
 //SCALE VARIABLES
-float scale_calibration = 20580;
+int scale_calibration = 20580;
 float calibration_interval = 1;
 float scale_reading;
 String scale_reading_string;
@@ -116,16 +118,23 @@ void setup() {
   Serial.begin(9600);
   Serial1.begin(115200);
 
-  scale.begin(PIN_SCL_DAT, PIN_SCL_SCK);
-  scale.set_scale(scale_calibration);
+  //while(!Serial);
 
+  Serial.println("Initializing Maat Alarm Clock Scale");
+  Serial.print("Initializing LCD...");
   lcd.init();
+  Serial.println("Done");
 
+  Serial.print("Initializing RTC...");
   rtc.writeProtect(false);
   byte armedRamValue = rtc.readRam(ARMED_RAM_ADDRESS);
   byte disarmTimeRamValue = rtc.readRam(DISARM_TIME_RAM_ADDRESS);
   byte alarmTimeHourRamValue = rtc.readRam(ALARM_HOUR_RAM_ADDRESS);
   byte alarmTimeMinuteRamValue = rtc.readRam(ALARM_MINUTE_RAM_ADDRESS);
+  byte scaleCalibrationLow = rtc.readRam(SCALE_CALIBRATION_RAM_ADDRESS_LOW);
+  byte scaleCalibrationHigh = rtc.readRam(SCALE_CALIBRATION_RAM_ADDRESS_HIGH);
+  scale_calibration = scaleCalibrationHigh;
+  scale_calibration = (scale_calibration << 8) | scaleCalibrationLow; //combine the two bytes to make the int
   if(armedRamValue != 0) {
     //-1 = disarmed, 1 = armed
     alarmArmed = rtc.readRam(0) > 0;
@@ -136,6 +145,12 @@ void setup() {
   if(alarmTimeHourRamValue != 0 || alarmTimeMinuteRamValue != 0) {
     alarmTime = (int)alarmTimeHourRamValue * 60 + (int)alarmTimeMinuteRamValue;
   }
+  Serial.println("Done");
+
+  Serial.print("Initializing Scale...");
+  scale.begin(PIN_SCL_DAT, PIN_SCL_SCK);
+  scale.set_scale(scale_calibration);
+  Serial.println("Done");
 
   /*
   //DEBUG: alarm goes off in 1 minute
@@ -160,9 +175,11 @@ void setup() {
     return;
   }
 
+  Serial.print("Initializing WiFi");
   lcd.backlight();
   lcdPrintCenter("Initializing", 0);
   lcdPrintCenter("|--------------|", 1);
+  
   Serial1.print("AT+RST\r\n");
   for(int i = 0; i < 9; i++) {
     String val = "|";
@@ -172,6 +189,7 @@ void setup() {
     }
     val += "-----|";
     lcdPrintCenter(val, 1);
+    Serial.print(".");
     delay(250);
   }
   
@@ -185,7 +203,7 @@ void setup() {
     val += "|";
     val = "|########" + val;
     lcdPrintCenter(val, 1);
-    Serial.println(val);
+    Serial.print(".");
     delay(250);
   }
   lcdPrintCenter("|##############|", 1);
@@ -196,6 +214,10 @@ void setup() {
   
   lcdClear();
   lcd.noBacklight();
+  Serial.println("Done");
+
+  Serial.println("");
+  Serial.println("Initialization Complete!");
   
   scale.tare();
 }
@@ -205,8 +227,8 @@ void loop() {
   
   //Get scale reading
   scale_reading = scale.get_units(1);
-  long reading_mult = (long)(scale_reading * 10.0);
-  scale_reading_string = String((float)reading_mult / 10.0) + " kg";
+  byte reading_decimal = (int)(scale_reading * 10) % 10;
+  scale_reading_string = String((int)scale_reading) + "." + String(reading_decimal) + " kg";
 
   //Get input
   set_pressed = digitalRead(PIN_BTN_SET);
@@ -249,13 +271,8 @@ void loop() {
   if(current_mode == -2) {
     //SCALE CALIBRATION
 
-    float new_calibration = scale_calibration + axis_direction * calibration_interval;
-    if(new_calibration != scale_calibration) {
-        scale_calibration = new_calibration;
-        scale.set_scale(scale_calibration);
-    }
-    
-    if(back_pressdown) {
+    //Tare if UP and DOWN both pressed
+    if(up_pressed && down_pressed) {
         lcdPrintCenter("Tare", 0);
         lcdPrintCenter("Scale", 1);
         delay(1000);
@@ -263,13 +280,37 @@ void loop() {
         delay(1000);
     }
 
+    //Use UP and DOWN to change calibration
+    float new_calibration = scale_calibration + axis_direction * calibration_interval;
+    if(new_calibration != scale_calibration) {
+        scale_calibration = new_calibration;
+        scale.set_scale(scale_calibration);
+    }
+
+    //Back (holding SET) writes calibration factor to RAM, will be used on startup from now on
+    if(back_pressdown) {
+        byte calibrationLow = scale_calibration % 256;
+        byte calibrationHigh = scale_calibration / 256;
+        rtc.writeRam(SCALE_CALIBRATION_RAM_ADDRESS_LOW, calibrationLow);
+        rtc.writeRam(SCALE_CALIBRATION_RAM_ADDRESS_HIGH, calibrationHigh);
+        lcdPrintCenter("New Calibration", 0);
+        lcdPrintCenter("Applied", 1);
+        delay(1000);
+    }
+
+    //Set button changes units of change
     if(set_pressdown) {
         if(calibration_interval < 1) calibration_interval = 1;
         else if(calibration_interval < 10) calibration_interval = 10;
         else if(calibration_interval < 100) calibration_interval = 100;
         else if(calibration_interval < 1000) calibration_interval = 1000;
         else calibration_interval = 0.1;
+
+        lcdPrintCenter("Units", 0);
+        lcdPrintCenter(String(calibration_interval), 1);
+        delay(500);
     }
+    
     lcdPrintCenter("Factor: " + String(scale_calibration), 0);
     lcdPrintCenter(String(scale_reading) + " kg", 1);
   }
